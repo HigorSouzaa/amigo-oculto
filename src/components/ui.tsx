@@ -1,0 +1,5 @@
+import Link from "next/link";
+export function GiftIcon({ className = "" }: { className?: string }) { return <svg aria-hidden="true" className={className} viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round"><path d="M6 20h36v7H6zM9 27h30v16H9zM24 20v23M6 20h36M24 20c-10 0-14-3-12-8 2-6 11-1 12 8Zm0 0c10 0 14-3 12-8-2-6-11-1-12 8Z"/></svg> }
+export function PersonIcon() { return <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20v-1.5a7 7 0 0 1 14 0V20Z"/></svg> }
+export function Header({ caption }: { caption?: React.ReactNode }) { return <header className="site-header"><Link href="/" className="brand"><GiftIcon className="brand-mark"/>Amigo Oculto</Link>{caption && <div className="header-caption">{caption}</div>}</header> }
+export async function ApiError(response: Response) { try { const value = await response.json(); return value?.error?.message || "Não foi possível concluir agora."; } catch { return "Não foi possível concluir agora."; } }

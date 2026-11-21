@@ -1,0 +1,28 @@
+{
+  "name": "amigo-oculto",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "next build",
+    "start": "next start",
+    "hash-password": "node scripts/hash-password.mjs",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "jose": "^6.1.3",
+    "mongodb": "^6.20.0",
+    "next": "^15.5.6",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.12",
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
+    "eslint": "^9.38.0",
+    "eslint-config-next": "^15.5.6",
+    "typescript": "^5.9.3"
+  }
+}
