@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, GiftIcon, Header, PersonIcon } from "@/components/ui";
+import { ApiError, CheckIcon, GiftIcon, Header, LinkIcon, PersonIcon, PlusIcon, RefreshIcon, SparkleIcon } from "@/components/ui";
 
 type Group = {
   id: string;
@@ -122,18 +122,20 @@ export default function Dashboard() {
       <Header caption={<button className="secondary" onClick={logout} style={{ height: 37, padding: "0 12px" }}>Sair</button>} />
       <main className="page">
         <section className="panel wide">
-          <div className="top-actions">
-            <div className="group-heading">
+          <div className="dashboard-topbar">
+            <div className="top-actions">
+              <div className="group-heading">
               <div className="heading-mark"><GiftIcon className="gift-icon" /></div>
               <div>
                 <div className="eyebrow">Painel do organizador</div>
                 <h1 className="page-title" style={{ margin: "5px 0 8px" }}>{group?.name || "Seus grupos"}</h1>
-                {group && <span className="status-pill">{group.status === "drawn" ? "Sorteio concluído" : "Aguardando sorteio"}</span>}
+                {group && <span className="status-pill"><span className="status-dot" aria-hidden="true" />{group.status === "drawn" ? "Sorteio concluído" : "Aguardando sorteio"}</span>}
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {group && <button className="secondary" onClick={() => { setShowCreate(!showCreate); setName(""); }} style={{ height: 37, padding: "0 12px" }}>+ Novo grupo</button>}
-              <button className="secondary" onClick={() => void load()} disabled={loading} style={{ height: 37, padding: "0 12px" }}>Atualizar</button>
+              <div className="dashboard-actions">
+                {group && <button className="secondary action-button new-group-button" onClick={() => { setShowCreate(!showCreate); setName(""); }}><PlusIcon/><span>Novo grupo</span></button>}
+                <button className="secondary action-button refresh-button" onClick={() => void load()} disabled={loading}><RefreshIcon/><span>Atualizar</span></button>
+              </div>
             </div>
           </div>
 
@@ -159,7 +161,7 @@ export default function Dashboard() {
                   <div className="stat-label">Participantes</div>
                   <div className="stat-value">{group.participants.length} {group.participants.length === 1 ? "pessoa" : "pessoas"}</div>
                 </div>
-                <button className="secondary" onClick={() => void copy()}>{copied ? "Link copiado ✓" : "↗  Copiar link do grupo"}</button>
+                <button className="secondary copy-link-button" onClick={() => void copy()}>{copied ? <CheckIcon/> : <LinkIcon/>}<span>{copied ? "Link copiado" : "Copiar link do grupo"}</span></button>
               </div>
               <div className="dashboard-grid">
                 <section className="subpanel">
@@ -176,9 +178,9 @@ export default function Dashboard() {
                 <section className="subpanel draw-panel">
                   <GiftIcon className="gift-icon" />
                   <h2>{group.status === "drawn" ? "Sorteio realizado" : "Tudo pronto para sortear?"}</h2>
-                  <p className="subtle">{group.status === "drawn" ? "As pessoas já podem voltar ao link para descobrir o resultado." : "Confira quem entrou e faça o sorteio quando estiver pronto."}</p>
+                  <p className="subtle">{group.status === "drawn" ? "Compartilhe o link para cada pessoa consultar seu próprio resultado." : "Confira a lista de participantes e faça o sorteio quando todos estiverem aqui."}</p>
                   {group.status === "open" && <>
-                    <button className="primary full" style={{ marginTop: 17 }} disabled={group.participants.length < 2} onClick={() => setConfirm(true)}>◯ &nbsp; Realizar sorteio</button>
+                    <button className="primary full draw-button" style={{ marginTop: 17 }} disabled={group.participants.length < 2} onClick={() => setConfirm(true)}><SparkleIcon/>Realizar sorteio</button>
                     {group.participants.length < 2 && <p className="quiet">São necessárias pelo menos duas pessoas.</p>}
                     <div className="hint" style={{ textAlign: "left", marginTop: 14 }}>O sorteio é definitivo. Depois, não será possível alterar o grupo ou sortear novamente.</div>
                   </>}
