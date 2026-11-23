@@ -17,6 +17,7 @@ export async function localGroups() { if (!isLocalStore()) throw new Error("Loca
 export async function localInsert(group: Group) { const data = await readLocal(); data.groups.push(group); await writeLocal(data); }
 export async function localFind(query: (group: Group) => boolean) { return (await localGroups()).find(query) ?? null; }
 export async function localUpdate(id: string, update: (group: Group) => void) { const data = await readLocal(); const group = data.groups.find(g => g._id === id); if (!group) return false; update(group); await writeLocal(data); return true; }
+export async function localDelete(id: string) { const data = await readLocal(); const remaining = data.groups.filter(group => group._id !== id); if (remaining.length === data.groups.length) return false; data.groups = remaining; await writeLocal(data); return true; }
 export async function collection(): Promise<Collection<Group>> {
   if (isLocalStore()) throw new Error("Use local store functions when STORAGE_DRIVER=local");
   const uri = process.env.MONGODB_URI;
