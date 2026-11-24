@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, CheckIcon, GiftIcon, Header, LinkIcon, PersonIcon, PlusIcon, RefreshIcon, SparkleIcon, TrashIcon } from "@/components/ui";
+import { ApiError, CheckIcon, EditIcon, GiftIcon, Header, LinkIcon, PersonIcon, PlusIcon, RefreshIcon, SparkleIcon, TrashIcon } from "@/components/ui";
 
 type Group = {
   id: string;
   name: string;
   status: "open" | "drawn";
-  participants: Array<{ name: string; joinedAt: string }>;
+  reorganizationPending?: boolean;
+  participants: Array<{ id: string; name: string; joinedAt: string }>;
   joinUrl: string;
 };
 
@@ -23,6 +24,11 @@ export default function Dashboard() {
   const [showCreate, setShowCreate] = useState(false);
   const [drawGroupId, setDrawGroupId] = useState<string | null>(null);
   const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null);
+  const [reorganizeGroupId, setReorganizeGroupId] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<{ groupId: string; participantId: string; name: string } | null>(null);
+  const [editName, setEditName] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [deleteParticipantTarget, setDeleteParticipantTarget] = useState<{ groupId: string; participantId: string; name: string } | null>(null);
   const [copiedGroupId, setCopiedGroupId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -66,6 +72,40 @@ export default function Dashboard() {
     finally { setBusy(false); }
   }
 
+  async function reorganize(group: Group) {
+    setBusy(true); setError("");
+    try {
+      const response = await fetch(`/api/admin/groups/${group.id}/reorganize`, { method: "POST" });
+      if (!response.ok) { setError(await ApiError(response)); return; }
+      setReorganizeGroupId(null); await load();
+    } catch { setError("Não foi possível reabrir o grupo para um novo sorteio."); }
+    finally { setBusy(false); }
+  }
+
+  async function saveParticipant(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!editTarget) return;
+    setBusy(true); setError("");
+    try {
+      const payload: { name: string; pin?: string } = { name: editName };
+      if (newPin) payload.pin = newPin;
+      const response = await fetch(`/api/admin/groups/${editTarget.groupId}/participants/${editTarget.participantId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!response.ok) { setError(await ApiError(response)); return; }
+      setEditTarget(null); setNewPin(""); await load();
+    } catch { setError("Não foi possível atualizar o participante."); }
+    finally { setBusy(false); }
+  }
+
+  async function removeParticipant() {
+    if (!deleteParticipantTarget) return;
+    setBusy(true); setError("");
+    try {
+      const response = await fetch(`/api/admin/groups/${deleteParticipantTarget.groupId}/participants/${deleteParticipantTarget.participantId}`, { method: "DELETE" });
+      if (!response.ok) { setError(await ApiError(response)); return; }
+      setDeleteParticipantTarget(null); await load();
+    } catch { setError("Não foi possível excluir o participante."); }
+    finally { setBusy(false); }
+  }
+
   async function removeGroup(group: Group) {
     setBusy(true); setError("");
     try {
@@ -87,6 +127,7 @@ export default function Dashboard() {
 
   const drawTarget = groups.find(group => group.id === drawGroupId);
   const deleteTarget = groups.find(group => group.id === deleteGroupId);
+  const reorganizeTarget = groups.find(group => group.id === reorganizeGroupId);
 
   return <>
     <Header caption={<button className="secondary" onClick={logout} style={{ height: 37, padding: "0 12px" }}>Sair</button>} />
@@ -109,18 +150,21 @@ export default function Dashboard() {
       {loading ? <p className="quiet" role="status" style={{ marginTop: 24 }}>Carregando painel…</p> : groups.length ? <div className="group-list">
         {groups.map(group => <article className="group-card" key={group.id}>
           <div className="group-card-heading"><div className="group-heading"><div className="heading-mark"><GiftIcon className="gift-icon" /></div><div><div className="eyebrow">Grupo</div><h2 className="group-card-title">{group.name}</h2></div></div>
-            <span className={`status-pill ${group.status === "drawn" ? "status-pill-drawn" : ""}`}><span className="status-dot" aria-hidden="true" />{group.status === "drawn" ? "Sorteio concluído" : "Aguardando sorteio"}</span>
+            <span className={`status-pill ${group.status === "drawn" ? "status-pill-drawn" : ""}`}><span className="status-dot" aria-hidden="true" />{group.status === "drawn" ? "Sorteio concluído" : group.reorganizationPending ? "Sorteio reaberto" : "Aguardando sorteio"}</span>
           </div>
           <div className="statbar"><div><div className="stat-label">Participantes</div><div className="stat-value">{group.participants.length} {group.participants.length === 1 ? "pessoa" : "pessoas"}</div></div><button className="secondary copy-link-button" onClick={() => void copy(group)}>{copiedGroupId === group.id ? <CheckIcon/> : <LinkIcon/>}<span>{copiedGroupId === group.id ? "Link copiado" : "Copiar link do grupo"}</span></button></div>
           <div className="dashboard-grid">
-            <section className="subpanel"><h3>Participantes do grupo</h3><p className="quiet">Pessoas que entraram usando o link do grupo.</p><div className="list">{group.participants.length ? group.participants.map((participant, index) => <div className="person" key={`${participant.name}-${index}`}><span className="person-icon"><PersonIcon /></span>{participant.name}</div>) : <p className="quiet" style={{ padding: "17px 0" }}>Ainda não há participantes. Compartilhe o link para começar.</p>}</div></section>
-            <section className="subpanel draw-panel"><GiftIcon className="gift-icon"/><h3>{group.status === "drawn" ? "Sorteio realizado" : "Tudo pronto para sortear?"}</h3><p className="subtle">{group.status === "drawn" ? "Compartilhe o link para cada pessoa consultar seu próprio resultado." : "Confira quem entrou e faça o sorteio quando todos estiverem aqui."}</p>{group.status === "open" && <><button className="primary full draw-button" style={{ marginTop: 17 }} disabled={group.participants.length < 2} onClick={() => setDrawGroupId(group.id)}><SparkleIcon/>Realizar sorteio</button>{group.participants.length < 2 && <p className="quiet">São necessárias pelo menos duas pessoas.</p>}<div className="hint" style={{ textAlign: "left", marginTop: 14 }}>O sorteio é definitivo. Depois, não será possível alterar o grupo ou sortear novamente.</div></>}</section>
+            <section className="subpanel"><h3>Participantes do grupo</h3><p className="quiet">Pessoas que entraram usando o link do grupo.</p><div className="list">{group.participants.length ? group.participants.map(participant => <div className="person-row" key={participant.id}><div className="person"><span className="person-icon"><PersonIcon /></span>{participant.name}</div><div className="participant-actions"><button className="participant-action" onClick={() => { setEditTarget({ groupId: group.id, participantId: participant.id, name: participant.name }); setEditName(participant.name); setNewPin(""); }}><EditIcon/><span>Editar</span></button>{group.status === "open" && <button className="participant-action participant-remove" onClick={() => setDeleteParticipantTarget({ groupId: group.id, participantId: participant.id, name: participant.name })}><TrashIcon/><span>Excluir</span></button>}</div></div>) : <p className="quiet" style={{ padding: "17px 0" }}>Ainda não há participantes. Compartilhe o link para começar.</p>}</div>{group.status === "drawn" && <p className="quiet participant-locked-note">Para excluir alguém, reorganize o sorteio primeiro.</p>}</section>
+            <section className="subpanel draw-panel"><GiftIcon className="gift-icon"/><h3>{group.status === "drawn" ? "Sorteio realizado" : group.reorganizationPending ? "Sorteio reaberto" : "Tudo pronto para sortear?"}</h3><p className="subtle">{group.status === "drawn" ? "Compartilhe o link para cada pessoa consultar seu próprio resultado." : group.reorganizationPending ? "As atribuições anteriores foram canceladas. Revise os participantes e sorteie novamente." : "Confira quem entrou e faça o sorteio quando todos estiverem aqui."}</p>{group.status === "open" ? <><button className="primary full draw-button" style={{ marginTop: 17 }} disabled={group.participants.length < 2} onClick={() => setDrawGroupId(group.id)}><SparkleIcon/>Realizar sorteio</button>{group.participants.length < 2 && <p className="quiet">São necessárias pelo menos duas pessoas.</p>}<div className="hint" style={{ textAlign: "left", marginTop: 14 }}>{group.reorganizationPending ? "Os participantes anteriores verão um aviso quando voltarem. O novo resultado substituirá o anterior." : "O sorteio é definitivo. Depois, não será possível alterar o grupo ou sortear novamente."}</div></> : <><button className="secondary full reorganize-button" style={{ marginTop: 17 }} onClick={() => setReorganizeGroupId(group.id)}><RefreshIcon/>Reorganizar sorteio</button><div className="hint" style={{ textAlign: "left", marginTop: 14 }}>O resultado atual será cancelado e todos receberão um aviso. Depois das mudanças, faça um novo sorteio.</div></>}</section>
           </div>
           <div className="group-card-footer"><span className="quiet">Grupo criado para este sorteio</span><button className="delete-group-button" onClick={() => setDeleteGroupId(group.id)}><TrashIcon/>Excluir grupo</button></div>
         </article>)}
       </div> : <div className="empty-groups"><div className="heading-mark"><GiftIcon className="gift-icon"/></div><h2>{created ? "Seu grupo está pronto" : "Ainda não há grupos"}</h2><p className="subtle">Crie um grupo para organizar seu próximo amigo secreto.</p><button className="primary" onClick={() => setShowCreate(true)}><PlusIcon/>Criar primeiro grupo</button></div>}
     </section></main>
-    {drawTarget && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title"><h2 id="confirm-title">Confirmar sorteio?</h2><p className="subtle">O sorteio de “{drawTarget.name}” será definitivo para {drawTarget.participants.length} participantes. Depois dele, as inscrições serão encerradas.</p><div className="modal-actions"><button className="secondary" onClick={() => setDrawGroupId(null)} disabled={busy}>Voltar</button><button className="primary" onClick={() => void draw(drawTarget)} disabled={busy}>{busy ? "Sorteando…" : "Confirmar sorteio"}</button></div></section></div>}
-    {deleteTarget && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="delete-title"><h2 id="delete-title">Excluir “{deleteTarget.name}”?</h2><p className="subtle">O grupo e os dados dos participantes serão removidos permanentemente. Os links desse grupo deixarão de funcionar.</p><div className="modal-actions"><button className="secondary" onClick={() => setDeleteGroupId(null)} disabled={busy}>Cancelar</button><button className="danger-button" onClick={() => void removeGroup(deleteTarget)} disabled={busy}>{busy ? "Excluindo…" : "Excluir grupo"}</button></div></section></div>}
+    {drawTarget && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title"><h2 id="confirm-title">Confirmar sorteio?</h2><p className="subtle">O sorteio de “{drawTarget.name}” será definitivo para {drawTarget.participants.length} participantes. Depois dele, as inscrições serão encerradas.</p>{error&&<p className="message" role="alert">{error}</p>}<div className="modal-actions"><button className="secondary" onClick={() => setDrawGroupId(null)} disabled={busy}>Voltar</button><button className="primary" onClick={() => void draw(drawTarget)} disabled={busy}>{busy ? "Sorteando…" : "Confirmar sorteio"}</button></div></section></div>}
+    {reorganizeTarget && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="reorganize-title"><h2 id="reorganize-title">Reorganizar “{reorganizeTarget.name}”?</h2><p className="subtle">O resultado atual será invalidado, as inscrições serão reabertas e os participantes anteriores verão um aviso. Você poderá corrigir dados, excluir pessoas ou compartilhar o link para novas entradas antes de sortear de novo.</p>{error&&<p className="message" role="alert">{error}</p>}<div className="modal-actions"><button className="secondary" onClick={() => setReorganizeGroupId(null)} disabled={busy}>Cancelar</button><button className="primary" onClick={() => void reorganize(reorganizeTarget)} disabled={busy}>{busy ? "Reabrindo…" : "Confirmar reorganização"}</button></div></section></div>}
+    {editTarget && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="edit-participant-title"><h2 id="edit-participant-title">Editar participante</h2><p className="subtle">Altere o nome ou defina um novo PIN de 4 dígitos. O PIN atual não pode ser consultado.</p><form className="form" onSubmit={saveParticipant}><div className="field"><label htmlFor="participant-name">Nome</label><input id="participant-name" required minLength={2} maxLength={60} value={editName} onChange={event => setEditName(event.target.value)} /></div><div className="field"><label htmlFor="participant-pin">Novo PIN (opcional)</label><input id="participant-pin" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} autoComplete="new-password" placeholder="4 dígitos" value={newPin} onChange={event => setNewPin(event.target.value.replace(/\D/g, "").slice(0, 4))} /></div>{error&&<p className="message" role="alert">{error}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={() => setEditTarget(null)} disabled={busy}>Cancelar</button><button className="primary" disabled={busy}>{busy ? "Salvando…" : "Salvar alterações"}</button></div></form></section></div>}
+    {deleteParticipantTarget && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="delete-participant-title"><h2 id="delete-participant-title">Excluir {deleteParticipantTarget.name}?</h2><p className="subtle">A pessoa será removida deste grupo. Essa ação não pode ser desfeita.</p>{error&&<p className="message" role="alert">{error}</p>}<div className="modal-actions"><button className="secondary" onClick={() => setDeleteParticipantTarget(null)} disabled={busy}>Cancelar</button><button className="danger-button" onClick={() => void removeParticipant()} disabled={busy}>{busy ? "Excluindo…" : "Excluir participante"}</button></div></section></div>}
+    {deleteTarget && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="delete-title"><h2 id="delete-title">Excluir “{deleteTarget.name}”?</h2><p className="subtle">O grupo e os dados dos participantes serão removidos permanentemente. Os links desse grupo deixarão de funcionar.</p>{error&&<p className="message" role="alert">{error}</p>}<div className="modal-actions"><button className="secondary" onClick={() => setDeleteGroupId(null)} disabled={busy}>Cancelar</button><button className="danger-button" onClick={() => void removeGroup(deleteTarget)} disabled={busy}>{busy ? "Excluindo…" : "Excluir grupo"}</button></div></section></div>}
   </>;
 }

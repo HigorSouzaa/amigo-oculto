@@ -2,7 +2,7 @@ import { MongoClient, type Collection, type Db } from "mongodb";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-export type Participant = { id: string; name: string; nameKey: string; pinHash: string; joinedAt: Date; recipientId?: string };
+export type Participant = { id: string; name: string; nameKey: string; pinHash: string; joinedAt: Date; recipientId?: string; redrawNotice?: boolean };
 export type Group = { _id: string; token: string; name: string; status: "open" | "drawn"; participants: Participant[]; createdAt: Date; drawnAt?: Date };
 let clientPromise: Promise<MongoClient> | undefined;
 const localPath = path.join(process.cwd(), ".local-data", "groups.json");

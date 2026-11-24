@@ -10,6 +10,6 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
     if (group.status !== "drawn") return fail(409, "DRAW_PENDING", "O sorteio ainda não foi realizado.");
     const participant = group.participants.find(p => p.id === session.sub); const recipient = group.participants.find(p => p.id === participant?.recipientId);
     if (!participant || !recipient || participant.id === recipient.id) return fail(409, "RESULT_UNAVAILABLE", "Não foi possível localizar seu resultado.");
-    return NextResponse.json({ result: { participantName: participant.name, recipientName: recipient.name } });
+    return NextResponse.json({ result: { participantName: participant.name, recipientName: recipient.name }, reorganizationNotice: !!participant.redrawNotice });
   } catch (e) { return safeError(e); }
 }
